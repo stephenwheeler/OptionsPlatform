@@ -91,7 +91,11 @@ function getOptionsChainFromCells(){
   cellsSetValue('f2', cell_values);
   
   // Get Option quotes for all options between min/max strike prices.
-  var result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
+  var s_result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
+
+  var result = JSON.parse(s_result);
+
+  result.optionQuotes.forEach ( parseRow );
 
   var num_options = outputChainToSpreadsheet(result);
 
@@ -100,17 +104,17 @@ function getOptionsChainFromCells(){
 }
 
 function outputMatrixToSpreadsheet( chain ){
-    var result = JSON.parse(chain);
+    // var result = JSON.parse(chain);
 
     var a_options = chain.optionQuotes;
-    for (int bought=0; bought < a_options.length - 1; bought++){
-        for (int sold=0; sold < a_options.length - 1; sold++){
+    for (let bought in a_options){
+        for (let sold in a_options){
             if (bought==0){
                 // Output top row of strike prices.
-                console.log(bought, ',', sold, a_options[sold];
+                console.log(bought, ',', sold, a_options[sold].strike);
             } else if (sold == 0) {
                 // Output left column of strike prices.
-                console.log(bought, ',', sold, a_options[bought];
+                console.log(bought, ',', sold, a_options[bought].strike);
             } else {
                 var result = calculateVerticalCallROI(a_options[bought], a_options[sold]);
                 console.log(bought, ',', sold, result);
@@ -121,13 +125,13 @@ function outputMatrixToSpreadsheet( chain ){
 
 function calculateVerticalCallROI(bought_option, sold_option){
     // If bought strike < sold strike then...
-    var spread = a_options[bought].strike - a_options[sold].strike;
-    var cost = a_options[bought].askPrice - a_options[sold].bidPrice;
+    var spread = bought_option.strike - sold_option.strike;
+    var cost = bought_option.askPrice - sold_option.bidPrice;
     var roi = 0;
     if (spread < 0){
         // Vertical call.
         roi = (spread * -1.0 / cost) - 1; 
-    } else {
+    } else if (spread > 0) {
         // Upside down vertical call.
         roi = cost * -1.0 / spread; 
     }
@@ -135,19 +139,19 @@ function calculateVerticalCallROI(bought_option, sold_option){
 }
 
 function outputChainToSpreadsheet(chain){
-  var result = JSON.parse(chain);
+  // var result = JSON.parse(chain);
 
-  result.optionQuotes.forEach ( parseRow );
+  // result.optionQuotes.forEach ( parseRow );
 
-  console.log(result[0]);
+  // console.log(chain.optionQuotes[0]);
 
-  var oqs = result.optionQuotes.sort(compareByStrike);
+  var oqs = chain.optionQuotes.sort(compareByStrike);
   oqs.forEach( outputRowToSpreadsheet );
   
 //  var range = SpreadsheetApp.getActiveSpreadsheet().getRange("B5:C5");
 //  range.setValues([ ["This is column B", "This is column C"] ]);
 
-  return result.optionQuotes.length;
+  return chain.optionQuotes.length;
 
 }
 
