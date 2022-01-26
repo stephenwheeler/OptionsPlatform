@@ -79,6 +79,7 @@ function getOptionsChainFromCells(){
   // { symbols: [{symbol:"TSLA", symbolId:38526}, {symbol:TSLA.TO...}] }
   
   console.log(stock_symbols.symbols[0]);
+  // Get stock_id from set of symbols.
   for (sym in stock_symbols.symbols) {
     console.log((sym));
     if(stock_symbols.symbols[sym].symbol == params[0]){
@@ -92,7 +93,62 @@ function getOptionsChainFromCells(){
   // Get Option quotes for all options between min/max strike prices.
   var result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
 
-  return outputChainToSpreadsheet(result);
+  var num_options = outputChainToSpreadsheet(result);
+
+  var output = outputMatrixToSpreadsheet(result);
+  return num_options;
+}
+
+function outputMatrixToSpreadsheet( chain ){
+    var result = JSON.parse(chain);
+
+    var a_options = chain.optionQuotes;
+    for (int bought=0; bought < a_options.length - 1; bought++){
+        for (int sold=0; sold < a_options.length - 1; sold++){
+            if (bought==0){
+                // Output top row of strike prices.
+                console.log(bought, ',', sold, a_options[sold];
+            } else if (sold == 0) {
+                // Output left column of strike prices.
+                console.log(bought, ',', sold, a_options[bought];
+            } else {
+                var result = calculateVerticalCallROI(a_options[bought], a_options[sold]);
+                console.log(bought, ',', sold, result);
+            }
+        }
+    }
+}
+
+function calculateVerticalCallROI(bought_option, sold_option){
+    // If bought strike < sold strike then...
+    var spread = a_options[bought].strike - a_options[sold].strike;
+    var cost = a_options[bought].askPrice - a_options[sold].bidPrice;
+    var roi = 0;
+    if (spread < 0){
+        // Vertical call.
+        roi = (spread * -1.0 / cost) - 1; 
+    } else {
+        // Upside down vertical call.
+        roi = cost * -1.0 / spread; 
+    }
+    return roi;
+}
+
+function outputChainToSpreadsheet(chain){
+  var result = JSON.parse(chain);
+
+  result.optionQuotes.forEach ( parseRow );
+
+  console.log(result[0]);
+
+  var oqs = result.optionQuotes.sort(compareByStrike);
+  oqs.forEach( outputRowToSpreadsheet );
+  
+//  var range = SpreadsheetApp.getActiveSpreadsheet().getRange("B5:C5");
+//  range.setValues([ ["This is column B", "This is column C"] ]);
+
+  return result.optionQuotes.length;
+
 }
 
 function getTeslaOptions(){
@@ -101,19 +157,6 @@ function getTeslaOptions(){
 
   // result = JSON.parse(getOptionsQuote(38526));
   result = getOptionsQuote(38526);
-
-  /* result.optionQuotes.forEach ( parseRow );
-
-  console.log(result[0]);
-
-  var oqs = result.optionQuotes.sort(compareByStrike);
-  oqs.forEach( outputRowToSpreadsheet );
-
-  
-//  var range = SpreadsheetApp.getActiveSpreadsheet().getRange("B5:C5");
-//  range.setValues([ ["This is column B", "This is column C"] ]);
-
-  return result.optionQuotes.length; */
 
   return outputChainToSpreadsheet(result);
 }
@@ -195,24 +238,6 @@ function getParameterCells(){
 
   console.log('[0][0]: %s', values[0][0]);
   return values;
-}
-
-
-function outputChainToSpreadsheet(chain){
-  var result = JSON.parse(chain);
-
-  result.optionQuotes.forEach ( parseRow );
-
-  console.log(result[0]);
-
-  var oqs = result.optionQuotes.sort(compareByStrike);
-  oqs.forEach( outputRowToSpreadsheet );
-  
-//  var range = SpreadsheetApp.getActiveSpreadsheet().getRange("B5:C5");
-//  range.setValues([ ["This is column B", "This is column C"] ]);
-
-  return result.optionQuotes.length;
-
 }
 
 function cellsSetValue(range, values){
