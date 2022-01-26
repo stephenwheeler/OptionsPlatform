@@ -1,212 +1,228 @@
-/**
- * Attempts to access a non-Google API using a constructed service
- * object.
- *
- * If your add-on needs access to non-Google APIs that require OAuth,
- * you need to implement this method. You can use the OAuth1 and
- * OAuth2 Apps Script libraries to help implement it.
- *
- * @param {String} url         The URL to access.
- * @param {String} method_opt  The HTTP method. Defaults to GET.
- * @param {Object} headers_opt The HTTP headers. Defaults to an empty
- *                             object. The Authorization field is added
- *                             to the headers in this method.
- * @return {HttpResponse} the result from the UrlFetchApp.fetch() call.
- */
-function accessProtectedResource(url, method_opt, headers_opt, payload_opt) {
+function invokeQuestradeUrl(path, data_opt)
+{
   var service = getOAuthService();
-  var maybeAuthorized = service.hasAccess();
+  var token = service.getToken();
+  
+  var api_host = token.api_server; 
+  api_host = api_host ? api_host : 'https://api01.iq.questrade.com';
+  path = path ? path : 'v1/accounts';
+  var full_url = api_host + path;
+  return accessProtectedResource(full_url, null, null, data_opt);
+}
 
-  if (maybeAuthorized) {
-    // A token is present, but it may be expired or invalid. Make a
-    // request and check the response code to be sure.
-    var currentAccessToken = service.getAccessToken();
-    if (service.isExpired_(currentAccessToken)){
-      service.refresh();
-    }
-    var accessToken = service.getAccessToken();
-    if (service.isExpired_(accessToken)){
-      console.error("Failed to refresh access token: %s", service.isExpired_(accessToken));
-    }
-    // Make the UrlFetch request and return the result.
-    var method = method_opt || payload_opt ? 'post' : 'get';
-    var headers = headers_opt || {};
-    headers['Authorization'] =
-        Utilities.formatString('Bearer %s', accessToken);
-    // headers['Content-Type'] = 'application/json';
-    // headers['Accept'] = 'application/json';
-    var options = {
-      'headers': headers,
-      'method' : method,
-      'muteHttpExceptions': true, // Prevents thrown HTTP exceptions.
-    };
-    if (payload_opt) {
-      options.payload = payload_opt;
-    }
-    var resp = UrlFetchApp.fetch(url, options);
+function getOptionsQuoteVertical(stock_id, expiry){
+  stock_id = 38526;
+  var payload = {
+    variants: [
+        {
+             variantId: 1,
+             strategy: 'VerticalCallSpread',
+             legs: [
+                   {
+                      symbolId: 28908433,
+                      ratio:  10,
+                      action: 'Buy'
+                   },
+                   {
+                       symbolId: 32072800,
+                       ratio:  10,
+                       action: 'Sell'
+                   }
+                ]
+          }
+    ]
+  };
+  return invokeQuestradeUrl('v1/markets/quotes/strategies', JSON.stringify(payload));
+}
 
-    var code = resp.getResponseCode();
-    if (code >= 200 && code < 300) {
-      return resp.getContentText("utf-8"); // Success
-    } else if (code == 401 || code == 403) {
-       // Not fully authorized for this action.
-       maybeAuthorized = false;
-       console.error("Backend server error (%s): %s", code.toString(),
-                     resp.getContentText("utf-8"));
-       service.refresh(); // try to refresh the access token.
-       throw ("Backend server error: " + code);
+function getOptionsQuote(stock_id, expiry){
+  stock_id = 38526;
+  var payload = {
+    filters: [
+        {
+             optionType: 'Call',
+             underlyingId: stock_id,
+             expiryDate: '2022-03-18T00:00:00.000000-05:00',
+             minstrikePrice: 900,
+             maxstrikePrice: 1000
+        },
+    ],
+    optionIds: [
+        28908433,
+        9907638
+    ]
+  };
+  return invokeQuestradeUrl('v1/markets/quotes/options', JSON.stringify(payload));
+}
 
-    } else {
-       // Handle other response codes by logging them and throwing an
-       // exception.
-       console.error("Backend server error (%s): %s", code.toString(),
-                     resp.getContentText("utf-8"));
-       throw ("Backend server error: " + code);
+function getOptionsQuoteParams(stock_id, expiry, min_strike, max_strike){
+  var payload = {
+    filters: [
+        {
+             optionType: 'Call',
+             underlyingId: stock_id,
+             expiryDate: expiry, // '2022-03-18T00:00:00.000000-05:00',
+             minstrikePrice: min_strike,
+             maxstrikePrice: max_strike
+        },
+    ],
+  };
+  return invokeQuestradeUrl('v1/markets/quotes/options', JSON.stringify(payload));
+}
+
+function getOptionsChainFromCells(){
+  var params = getParameterCells()[0];
+  var stock_id = null;
+  
+  // Get the Stock SymbolId from Stock symbol and save in f2.
+  var stock_symbols = JSON.parse(getSymbol(params[0]));
+  // { symbols: [{symbol:"TSLA", symbolId:38526}, {symbol:TSLA.TO...}] }
+  
+  console.log(stock_symbols.symbols[0]);
+  for (sym in stock_symbols.symbols) {
+    console.log((sym));
+    if(stock_symbols.symbols[sym].symbol == params[0]){
+      stock_id = stock_symbols.symbols[sym].symbolId;
     }
   }
+  console.log(stock_id);
+  var cell_values = [[ stock_id ]];
+  cellsSetValue('f2', cell_values);
+  
+  // Get Option quotes for all options between min/max strike prices.
+  var result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
 
-  if (!maybeAuthorized) {
-    // Invoke the authorization flow using the default authorization
-    // prompt card.
-    CardService.newAuthorizationException()
-        .setAuthorizationUrl(service.getAuthorizationUrl())
-        .setResourceDisplayName("Authorize access to Options Q app")
-        .throwException();
+  return outputChainToSpreadsheet(result);
+}
+
+function getTeslaOptions(){
+  var result;
+  // result = invokeQuestradeUrl('v1/symbols/38526/options');
+
+  // result = JSON.parse(getOptionsQuote(38526));
+  result = getOptionsQuote(38526);
+
+  /* result.optionQuotes.forEach ( parseRow );
+
+  console.log(result[0]);
+
+  var oqs = result.optionQuotes.sort(compareByStrike);
+  oqs.forEach( outputRowToSpreadsheet );
+
+  
+//  var range = SpreadsheetApp.getActiveSpreadsheet().getRange("B5:C5");
+//  range.setValues([ ["This is column B", "This is column C"] ]);
+
+  return result.optionQuotes.length; */
+
+  return outputChainToSpreadsheet(result);
+}
+
+function getOptionsFromStockSymbolId(symbolId){
+  if (!symbolId)
+    symbolId = '28768';  // NFLX.
+  
+  var url = 'v1/symbols/' + symbolId + '/options';
+  var result = invokeQuestradeUrl(url, null);
+  console.log(result);
+  return result;
+}
+
+function getSymbol(stock_ticker){
+  // https://www.questrade.com/api/documentation/rest-operations/market-calls/symbols-search
+
+  if (!stock_ticker)
+    stock_ticker = 'NFLX';
+
+  var url = 'v1/symbols/search?prefix=' + stock_ticker;
+  var result = invokeQuestradeUrl(url, null);
+
+  return result;
+}
+
+function compareByStrike(a, b){
+  if (parseInt(a.strike) < parseInt(b.strike)){
+    return 1;
   }
-}
-
-
-/**
- * Create a new OAuth service to facilitate accessing an API.
- * This example assumes there is a single service that the add-on needs to
- * access. Its name is used when persisting the authorized token, so ensure
- * it is unique within the scope of the property store. You must set the
- * client secret and client ID, which are obtained when registering your
- * add-on with the API.
- *
- * See the Apps Script OAuth2 Library documentation for more
- * information:
- *   https://github.com/googlesamples/apps-script-oauth2#1-create-the-oauth2-service
- *
- *  @return A configured OAuth2 service object.
- */
-function getOAuthService_template() {
-  return OAuth2.createService('SERVICE_NAME')
-      .setAuthorizationBaseUrl('SERVICE_AUTH_URL')
-      .setTokenUrl('SERVICE_AUTH_TOKEN_URL')
-      .setClientId('CLIENT_ID')
-      .setClientSecret('CLIENT_SECRET')
-      .setScope('SERVICE_SCOPE_REQUESTS')
-      .setCallbackFunction('authCallback')
-      .setCache(CacheService.getUserCache())
-      .setPropertyStore(PropertiesService.getUserProperties());
-}
-
-function getOAuthService() {
-  // Create a new service with the given name. The name will be used when
-  // persisting the authorized token, so ensure it is unique within the
-  // scope of the property store.
-  // From here: https://github.com/googleworkspace/apps-script-oauth2
-  return OAuth2.createService('OptionsQapp')
-
-      // Set the endpoint URLs, which are the same for all Google services.
-      // From here: https://www.questrade.com/api/documentation/authorization
-      // https://login.questrade.com/oauth2/authorize?client_id=<client_id> &response_type=code&redirect_uri=https://www.example.com
-
-      .setAuthorizationBaseUrl('https://login.questrade.com/oauth2/authorize')
-      // .setAuthorizationBaseUrl('https://accounts.google.com/o/oauth2/auth')
-      
-      .setTokenUrl('https://login.questrade.com/oauth2/token')
-      // .setTokenUrl('https://accounts.google.com/o/oauth2/token')
-      // https://login.questrade.com/oauth2/token?client_id=<client id=""> &code=<code>&grant_type=authorization_code&redirect_uri=http://www.example.com
-
-      .setRefreshUrl('https://login.questrade.com/oauth2/token')
-
-      // Set the client ID and secret, from the Google Developers Console.
-      .setClientId('_wlnCeyvCQArXge6tqoHOrm_hChKdg')
-      .setClientSecret('...')
-
-      // Set the name of the callback function in the script referenced
-      // above that should be invoked to complete the OAuth flow.
-      .setCallbackFunction('authCallback')
-
-      // Set the property store where authorized tokens should be persisted.
-      .setPropertyStore(PropertiesService.getUserProperties())
-
-      .setCache(CacheService.getUserCache())
-
-      // Set the scopes to request (space-separated for Google services).
-      // .setScope('https://www.googleapis.com/auth/drive')
-
-      // Below are Google-specific OAuth2 parameters.
-
-      // Sets the login hint, which will prevent the account chooser screen
-      // from being shown to users logged in with multiple accounts.
-      // .setParam('login_hint', Session.getEffectiveUser().getEmail())
-
-      // Requests offline access.
-      // .setParam('access_type', 'offline')
-
-      // Consent prompt is required to ensure a refresh token is always
-      // returned when requesting offline access.
-      // .setParam('prompt', 'consent');
-}
-
-// From here: https://github.com/googleworkspace/apps-script-oauth2#2-direct-the-user-to-the-authorization-url
-function showSidebar() {
-  var driveService = getOAuthService();
-  if (!driveService.hasAccess()) {
-    var authorizationUrl = driveService.getAuthorizationUrl();
-    var template = HtmlService.createTemplate(
-        '<a href="<?= authorizationUrl ?>" target="_blank">Authorize</a>. ' +
-        'Reopen the sidebar when the authorization is complete.');
-    template.authorizationUrl = authorizationUrl;
-    var page = template.evaluate();
-    SpreadsheetApp.getUi().showSidebar(page);
-  } else {
-  // ...
+  if (parseInt(a.strike) > parseInt(b.strike)){
+    return -1;
   }
+  return 0;
 }
 
 
-/**
- * Boilerplate code to determine if a request is authorized and returns
- * a corresponding HTML message. When the user completes the OAuth2 flow
- * on the service provider's website, this function is invoked from the
- * service. In order for authorization to succeed you must make sure that
- * the service knows how to call this function by setting the correct
- * redirect URL.
- *
- * The redirect URL to enter is:
- * https://script.google.com/macros/d/<Apps Script ID>/usercallback
- *
- * See the Apps Script OAuth2 Library documentation for more
- * information:
- *   https://github.com/googlesamples/apps-script-oauth2#1-create-the-oauth2-service
- *
- *  @param {Object} callbackRequest The request data received from the
- *                  callback function. Pass it to the service's
- *                  handleCallback() method to complete the
- *                  authorization process.
- *  @return {HtmlOutput} a success or denied HTML message to display to
- *          the user. Also sets a timer to close the window
- *          automatically.
- */
-function authCallback(callbackRequest) {
-  var authorized = getOAuthService().handleCallback(callbackRequest);
-  if (authorized) {
-    return HtmlService.createHtmlOutput(
-      '<p>Success!</p> <p>' + JSON.stringify(callbackRequest) + '</p> <script>setTimeout(function() { top.window.close() }, 1);</script>');
-  } else {
-    return HtmlService.createHtmlOutput('Denied');
-  }
+function parseSymbol(symbol, underlying){
+  // https://developers.google.com/apps-script/reference/document/text#findText(String,RangeElement)
+
+  //symbol = 'TSLA18Mar22C900.00';
+  //underlying = 'TSLA';
+  var indexOfC = symbol.indexOf('C',underlying.length + 1);
+  var expiryDate = symbol.substring(underlying.length, indexOfC);
+  var strike = symbol.substr(indexOfC + 1);
+  var result = {};
+  result.expiryDate = expiryDate;
+  result.strike = strike;
+  return result;
 }
 
-/**
- * Unauthorizes the non-Google service. This is useful for OAuth
- * development/testing.  Run this method (Run > resetOAuth in the script
- * editor) to reset OAuth to re-prompt the user for OAuth.
- */
-function resetOAuth() {
-  getOAuthService().reset();
+function parseRow( oq, index ){
+  var option = parseSymbol(oq.symbol,oq.underlying);
+  oq.expiryDate = option.expiryDate;
+  oq.strike = option.strike;
+  console.log( '%s, %s, %s, %s, %s, %s', oq.symbol, oq.underlying, oq.symbolId, oq.bidPrice, oq.askPrice, oq.lastTradePrice, oq.lastTradeTime );
 }
+
+/*
+    Spreadsheet functions
+*/
+
+function outputRowToSpreadsheet(oq, index){
+  var row = index + 4;
+  var s_range = Utilities.formatString('f%d:m%d', row, row);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var range = sheet.getRange(s_range);
+  range.setValues([ [ oq.symbol, oq.symbolId, oq.expiryDate, oq.strike, oq.bidPrice, oq.askPrice, oq.lastTradePrice, oq.lastTradeTime ] ]);
+  
+}
+
+function getParameterCells(){
+  var sheet = SpreadsheetApp.getActiveSheet();
+  // Stock	Stock Price	  Expiry	  Min Strike  	Max Strike	  Stock SymbolId
+  var range = sheet.getRange('a2:f2');
+
+  var values = range.getValues();
+
+  console.log('[0][0]: %s', values[0][0]);
+  return values;
+}
+
+
+function outputChainToSpreadsheet(chain){
+  var result = JSON.parse(chain);
+
+  result.optionQuotes.forEach ( parseRow );
+
+  console.log(result[0]);
+
+  var oqs = result.optionQuotes.sort(compareByStrike);
+  oqs.forEach( outputRowToSpreadsheet );
+  
+//  var range = SpreadsheetApp.getActiveSpreadsheet().getRange("B5:C5");
+//  range.setValues([ ["This is column B", "This is column C"] ]);
+
+  return result.optionQuotes.length;
+
+}
+
+function cellsSetValue(range, values){
+  var sheet = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var range = sheet.getRange(range);
+  range.setValues(values);
+}
+
+/*
+  Code to manipulate Spreadsheet:
+  https://github.com/msembinelli/questrade-google-apps-script/blob/master/src/Code.ts
+*/
