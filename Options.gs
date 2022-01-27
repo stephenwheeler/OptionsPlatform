@@ -107,33 +107,59 @@ function outputMatrixToSpreadsheet( chain ){
     // var result = JSON.parse(chain);
 
     var a_options = chain.optionQuotes;
+    var row_offset = a_options.length + 7;
+    var column = 'f';
+    var _range = '';
+    var result = 0;
     for (let bought in a_options){
         for (let sold in a_options){
-            if (bought==0){
+            _range = getNextLetter(column, sold);
+            _range = _range + (parseInt(bought)+row_offset);
+            if (bought==0 && sold==0){
+                // Do nothing.
+            } else if (bought==0){
                 // Output top row of strike prices.
                 console.log(bought, ',', sold, a_options[sold].strike);
+                cellsSetValue( _range, [[a_options[sold].strike]] );
             } else if (sold == 0) {
                 // Output left column of strike prices.
                 console.log(bought, ',', sold, a_options[bought].strike);
+                cellsSetValue( _range, [[a_options[bought].strike]] );
             } else {
-                var result = calculateVerticalCallROI(a_options[bought], a_options[sold]);
+                result = calculateVerticalCallROI(a_options[bought], a_options[sold]);
                 console.log(bought, ',', sold, result);
+                cellsSetValue( _range, [[result]] );
             }
         }
     }
 }
 
+function CallIntrinsicValue2(strike, stock, shares) {
+  //Utilities.sleep(1000);
+  if(strike > stock){
+    return (strike - stock) * shares;
+  }
+  else {
+    return 0;
+  }
+}
 function calculateVerticalCallROI(bought_option, sold_option){
+    if (!bought_option){
+      bought_option = { strike:770, askPrice:203 };
+      sold_option = { strike: 820, bidPrice: 176.15 };
+      // bought_option = { strike:120, askPrice:10 };
+      // sold_option = { strike: 100, bidPrice: 20 };
+    }
     // If bought strike < sold strike then...
-    var spread = bought_option.strike - sold_option.strike;
+    var spread = sold_option.strike - bought_option.strike;
     var cost = bought_option.askPrice - sold_option.bidPrice;
     var roi = 0;
-    if (spread < 0){
+    if (spread > 0){
         // Vertical call.
-        roi = (spread * -1.0 / cost) - 1; 
-    } else if (spread > 0) {
+        roi = (spread / cost) - 1; 
+    } else if (spread < 0) {
         // Upside down vertical call.
-        roi = cost * -1.0 / spread; 
+        roi = cost / spread; 
     }
     return roi;
 }
@@ -222,6 +248,13 @@ function parseRow( oq, index ){
 /*
     Spreadsheet functions
 */
+
+function getNextLetter(_letter, _increments=1){
+  if (!_letter) _letter = 'f';
+  var result = String.fromCharCode(_letter.charCodeAt(0) + parseInt(_increments));
+  console.log('result: ', result);
+  return result;
+}
 
 function outputRowToSpreadsheet(oq, index){
   var row = index + 4;
