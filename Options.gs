@@ -88,7 +88,7 @@ function getOptionsChainFromCells(){
   }
   console.log(stock_id);
   var cell_values = [[ stock_id ]];
-  cellsSetValue('f2', cell_values);
+  cellsSetValue('f2', cell_values); // Persist stock_id to spreadsheet.
   
   // Get Option quotes for all options between min/max strike prices.
   var s_result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
@@ -99,16 +99,17 @@ function getOptionsChainFromCells(){
 
   var num_options = outputChainToSpreadsheet(result);
 
-  var output = outputMatrixToSpreadsheet(result);
-  return num_options;
+  var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, 11, 'c');
+
+  return result.optionQuotes.length;
 }
 
-function outputMatrixToSpreadsheet( chain ){
+function outputMatrixValuesToSpreadsheet( chain, matrix_values_function, row_offset, column ){
     // var result = JSON.parse(chain);
 
     var a_options = chain.optionQuotes;
-    var row_offset = a_options.length + 7;
-    var column = 'f';
+    row_offset = row_offset ? parseInt(row_offset) : a_options.length * 2 + 10;  // Spacing the matrices on the spreadsheet.
+    column = column ? column : 'f';
     var _range = '';
     var result = 0;
     for (let bought in a_options){
@@ -126,7 +127,7 @@ function outputMatrixToSpreadsheet( chain ){
                 console.log(bought, ',', sold, a_options[bought].strike);
                 cellsSetValue( _range, [[a_options[bought].strike]] );
             } else {
-                result = calculateVerticalCallROI(a_options[bought], a_options[sold]);
+                result = matrix_values_function(a_options[bought], a_options[sold]);
                 console.log(bought, ',', sold, result);
                 cellsSetValue( _range, [[result]] );
             }
@@ -152,7 +153,13 @@ function calculateVerticalCallROI(bought_option, sold_option){
     }
     // If bought strike < sold strike then...
     var spread = sold_option.strike - bought_option.strike;
-    var cost = bought_option.askPrice - sold_option.bidPrice;
+    var cost = 0;
+    if (bought_option.askPrice && sold_option.bidPrice){
+      cost = bought_option.askPrice - sold_option.bidPrice;
+    } else {
+      // Bid and Ask only available when the market is open.
+      cost = bought_option.lastTradePrice - sold_option.lastTradePrice;
+    }
     var roi = 0;
     if (spread > 0){
         // Vertical call.
@@ -257,12 +264,12 @@ function getNextLetter(_letter, _increments=1){
 }
 
 function outputRowToSpreadsheet(oq, index){
-  var row = index + 4;
-  var s_range = Utilities.formatString('f%d:m%d', row, row);
+  var row = index + 2;
+  var s_range = Utilities.formatString('g%d:m%d', row, row);
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
   
   var range = sheet.getRange(s_range);
-  range.setValues([ [ oq.symbol, oq.symbolId, oq.expiryDate, oq.strike, oq.bidPrice, oq.askPrice, oq.lastTradePrice, oq.lastTradeTime ] ]);
+  range.setValues([ [ oq.symbol, oq.expiryDate, oq.strike, oq.bidPrice, oq.askPrice, oq.lastTradePrice, oq.lastTradeTime ] ]);
   
 }
 
