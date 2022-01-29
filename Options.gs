@@ -90,6 +90,12 @@ function getOptionsChainFromCells(){
   var cell_values = [[ stock_id ]];
   cellsSetValue('f2', cell_values); // Persist stock_id to spreadsheet.
   
+  var stock_quotes = JSON.parse( getMarketQuote(stock_id) );
+  /* {"quotes":[{"symbol":"TSLA","symbolId":38526,"tier":"","bidPrice":null,"bidSize":0,"askPrice":null,"askSize":0,"lastTradePriceTrHrs":846.35,"lastTradePrice":846.35,"lastTradeSize":0,"lastTradeTick":"…"
+  */
+  var stock_price = stock_quotes.quotes[0].lastTradePrice;
+  cellsSetValue('b2', [[stock_price]]);
+
   // Get Option quotes for all options between min/max strike prices.
   var s_result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
 
@@ -100,6 +106,8 @@ function getOptionsChainFromCells(){
   var num_options = outputChainToSpreadsheet(result);
 
   var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, 11, 'c');
+
+  var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallSafety, result.optionQuotes.length + 13, 'c');
 
   return result.optionQuotes.length;
 }
@@ -144,6 +152,16 @@ function CallIntrinsicValue2(strike, stock, shares) {
     return 0;
   }
 }
+
+function calculateVerticalCallSafety(bought_option, sold_option){
+    if (!bought_option){
+      bought_option = { strike:770, askPrice:203 };
+      sold_option = { strike: 820, bidPrice: 176.15 };
+      // bought_option = { strike:120, askPrice:10 };
+      // sold_option = { strike: 100, bidPrice: 20 };
+    }
+}
+
 function calculateVerticalCallROI(bought_option, sold_option){
     if (!bought_option){
       bought_option = { strike:770, askPrice:203 };
