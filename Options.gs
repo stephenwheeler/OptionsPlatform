@@ -1,39 +1,3 @@
-function invokeQuestradeUrl(path, data_opt)
-{
-  var service = getOAuthService();
-  var token = service.getToken();
-  
-  var api_host = token.api_server; 
-  api_host = api_host ? api_host : 'https://api01.iq.questrade.com';
-  path = path ? path : 'v1/accounts';
-  var full_url = api_host + path;
-  return accessProtectedResource(full_url, null, null, data_opt);
-}
-
-function getOptionsQuoteVertical(stock_id, expiry){
-  stock_id = 38526;
-  var payload = {
-    variants: [
-        {
-             variantId: 1,
-             strategy: 'VerticalCallSpread',
-             legs: [
-                   {
-                      symbolId: 28908433,
-                      ratio:  10,
-                      action: 'Buy'
-                   },
-                   {
-                       symbolId: 32072800,
-                       ratio:  10,
-                       action: 'Sell'
-                   }
-                ]
-          }
-    ]
-  };
-  return invokeQuestradeUrl('v1/markets/quotes/strategies', JSON.stringify(payload));
-}
 
 function getOptionsQuote(stock_id, expiry){
   stock_id = 38526;
@@ -71,6 +35,14 @@ function getOptionsQuoteParams(stock_id, expiry, min_strike, max_strike){
 }
 
 function getOptionsChainFromCells(){
+  return getOptionsDataFromCells(false);
+}
+
+function getOptionsMatrixFromCells(){
+  return getOptionsDataFromCells(true);
+}
+
+function getOptionsDataFromCells(b_include_matrix){
   var params = getParameterCells()[0];
   var stock_id = null;
   
@@ -105,14 +77,16 @@ function getOptionsChainFromCells(){
 
   var num_options = outputChainToSpreadsheet(result);
 
-  var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, 11, 'c');
+  if (b_include_matrix){
+    var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, result.optionQuotes.length + 3, 'c', stock_price);
 
-  var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallSafety, result.optionQuotes.length + 13, 'c');
+    var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallSafety, (result.optionQuotes.length + 3) * 2, 'c', stock_price);
+  }
 
   return result.optionQuotes.length;
 }
 
-function outputMatrixValuesToSpreadsheet( chain, matrix_values_function, row_offset, column ){
+function outputMatrixValuesToSpreadsheet( chain, matrix_values_function, row_offset, column, stock_price ){
     // var result = JSON.parse(chain);
 
     var a_options = chain.optionQuotes;
@@ -135,7 +109,7 @@ function outputMatrixValuesToSpreadsheet( chain, matrix_values_function, row_off
                 console.log(bought, ',', sold, a_options[bought].strike);
                 cellsSetValue( _range, [[a_options[bought].strike]] );
             } else {
-                result = matrix_values_function(a_options[bought], a_options[sold]);
+                result = matrix_values_function(a_options[bought], a_options[sold], stock_price);
                 console.log(bought, ',', sold, result);
                 cellsSetValue( _range, [[result]] );
             }
@@ -153,16 +127,42 @@ function CallIntrinsicValue2(strike, stock, shares) {
   }
 }
 
-function calculateVerticalCallSafety(bought_option, sold_option){
-    if (!bought_option){
-      bought_option = { strike:770, askPrice:203 };
-      sold_option = { strike: 820, bidPrice: 176.15 };
-      // bought_option = { strike:120, askPrice:10 };
-      // sold_option = { strike: 100, bidPrice: 20 };
-    }
+function calculateVerticalCallSafety(bought_option, sold_option, stock_price){
+  if (!bought_option){
+    bought_option = { strike:770, askPrice:203 };
+    sold_option = { strike: 820, bidPrice: 176.15 };
+    // bought_option = { strike:120, askPrice:10 };
+    // sold_option = { strike: 100, bidPrice: 20 };
+  }
+  stock_price = stock_price ? parseInt(stock_price) : 100;
+
+  var safety = 0;
+  var breakeven = 0;
+  var spread = sold_option.strike - bought_option.strike;
+  var cost = optionCost(bought_option, sold_option);
+  if (spread > 0){
+    breakeven = bought_option.strike - cost;
+    safety = (stock_price - breakeven) / stock_price;
+  } else if (spread < 0 ){
+    breakeven = sold_option.strike - cost;
+    safety = breakeven / stock_price - 1;
+  }
+  
+  return safety;
 }
 
-function calculateVerticalCallROI(bought_option, sold_option){
+function optionCost(bought_option, sold_option){
+  var cost = 0;
+  if (bought_option.askPrice && sold_option.bidPrice){
+    cost = bought_option.askPrice - sold_option.bidPrice;
+  } else {
+    // Bid and Ask only available when the market is open.
+    cost = bought_option.lastTradePrice - sold_option.lastTradePrice;
+  }
+  return cost;
+}
+
+function calculateVerticalCallROI(bought_option, sold_option, stock_price){
     if (!bought_option){
       bought_option = { strike:770, askPrice:203 };
       sold_option = { strike: 820, bidPrice: 176.15 };
@@ -171,13 +171,7 @@ function calculateVerticalCallROI(bought_option, sold_option){
     }
     // If bought strike < sold strike then...
     var spread = sold_option.strike - bought_option.strike;
-    var cost = 0;
-    if (bought_option.askPrice && sold_option.bidPrice){
-      cost = bought_option.askPrice - sold_option.bidPrice;
-    } else {
-      // Bid and Ask only available when the market is open.
-      cost = bought_option.lastTradePrice - sold_option.lastTradePrice;
-    }
+    var cost = optionCost(bought_option, sold_option);
     var roi = 0;
     if (spread > 0){
         // Vertical call.
