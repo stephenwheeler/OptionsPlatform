@@ -75,12 +75,17 @@ function getOptionsDataFromCells(b_include_matrix){
 
   result.optionQuotes.forEach ( parseRow );
 
+  // Clear the spreadsheet of previous values.
+  cellsClearRange('c15:z100');
+
   var num_options = outputChainToSpreadsheet(result);
 
   if (b_include_matrix){
-    var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, result.optionQuotes.length + 3, 'c', stock_price);
+    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, result.optionQuotes.length + 3, 'c', stock_price);
 
-    var output = outputMatrixValuesToSpreadsheet(result, calculateVerticalCallSafety, (result.optionQuotes.length + 3) * 2, 'c', stock_price);
+    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallSafety, (result.optionQuotes.length + 3) * 2, 'c', stock_price);
+
+    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallOverallScore, (result.optionQuotes.length + 3) * 3, 'c', stock_price);
   }
 
   return result.optionQuotes.length;
@@ -134,32 +139,54 @@ function calculateVerticalCallSafety(bought_option, sold_option, stock_price){
     // bought_option = { strike:120, askPrice:10 };
     // sold_option = { strike: 100, bidPrice: 20 };
   }
-  stock_price = stock_price ? parseInt(stock_price) : 100;
+  stock_price = stock_price ? parseFloat(stock_price) : 100;
 
+  var safety = optionSafetyMargin(bought_option, sold_option, stock_price);
+  
+  return safety;
+}
+
+function optionSafetyMargin(bought_option, sold_option, stock_price){
   var safety = 0;
   var breakeven = 0;
-  var spread = sold_option.strike - bought_option.strike;
+  var spread = optionSpread(bought_option, sold_option);
   var cost = optionCost(bought_option, sold_option);
   if (spread > 0){
-    breakeven = bought_option.strike - cost;
+    breakeven = parseFloat(bought_option.strike) + cost;
     safety = (stock_price - breakeven) / stock_price;
   } else if (spread < 0 ){
-    breakeven = sold_option.strike - cost;
+    breakeven = parseFloat(sold_option.strike) - cost;
     safety = breakeven / stock_price - 1;
   }
-  
   return safety;
 }
 
 function optionCost(bought_option, sold_option){
   var cost = 0;
   if (bought_option.askPrice && sold_option.bidPrice){
-    cost = bought_option.askPrice - sold_option.bidPrice;
+    cost = parseFloat(bought_option.askPrice) - parseFloat(sold_option.bidPrice);
   } else {
     // Bid and Ask only available when the market is open.
-    cost = bought_option.lastTradePrice - sold_option.lastTradePrice;
+    cost = parseFloat(bought_option.lastTradePrice) - parseFloat(sold_option.lastTradePrice);
   }
   return cost;
+}
+
+function calculateVerticalCallOverallScore(bought_option, sold_option, stock_price){
+  stock_price = stock_price ? parseFloat(stock_price) : 100;
+  // Get ratio factor from cell.
+  var factor = 5;
+  var safety = optionSafetyMargin(bought_option, sold_option, stock_price);
+  var spread = optionSpread(bought_option, sold_option);
+  var cost = optionCost(bought_option, sold_option);
+  var roi = optionROI(spread, cost);
+  var result = safety * factor + roi;
+  return result;
+}
+
+function optionSpread(bought_option, sold_option){
+  var spread = parseFloat(sold_option.strike) - parseFloat(bought_option.strike);
+  return spread;
 }
 
 function calculateVerticalCallROI(bought_option, sold_option, stock_price){
@@ -170,9 +197,14 @@ function calculateVerticalCallROI(bought_option, sold_option, stock_price){
       // sold_option = { strike: 100, bidPrice: 20 };
     }
     // If bought strike < sold strike then...
-    var spread = sold_option.strike - bought_option.strike;
+    var spread = optionSpread(bought_option, sold_option);
     var cost = optionCost(bought_option, sold_option);
-    var roi = 0;
+    var roi = optionROI(spread, cost);
+    return roi;
+}
+
+function optionROI(spread, cost){
+  var roi = 0;
     if (spread > 0){
         // Vertical call.
         roi = (spread / cost) - 1; 
@@ -233,16 +265,16 @@ function getSymbol(stock_ticker){
 }
 
 function compareByStrike(a, b){
-  if (parseInt(a.strike) < parseInt(b.strike)){
+  if (parseFloat(a.strike) < parseFloat(b.strike)){
     return 1;
   }
-  if (parseInt(a.strike) > parseInt(b.strike)){
+  if (parseFloat(a.strike) > parseFloat(b.strike)){
     return -1;
   }
   return 0;
 }
 
-
+// Parses expiryDate and Strike price into fields on the returned object.
 function parseSymbol(symbol, underlying){
   // https://developers.google.com/apps-script/reference/document/text#findText(String,RangeElement)
 
@@ -253,7 +285,7 @@ function parseSymbol(symbol, underlying){
   var strike = symbol.substr(indexOfC + 1);
   var result = {};
   result.expiryDate = expiryDate;
-  result.strike = strike;
+  result.strike = parseInt(strike);
   return result;
 }
 
@@ -301,6 +333,13 @@ function cellsSetValue(range, values){
   
   var range = sheet.getRange(range);
   range.setValues(values);
+}
+
+function cellsClearRange(range){
+  var sheet = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var range = sheet.getRange(range);
+  range.clear();
 }
 
 /*
