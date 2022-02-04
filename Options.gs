@@ -164,7 +164,9 @@ function optionSafetyMargin(bought_option, sold_option, stock_price){
 function optionCost(bought_option, sold_option){
   var cost = 0;
   if (bought_option.askPrice && sold_option.bidPrice){
-    cost = parseFloat(bought_option.askPrice) - parseFloat(sold_option.bidPrice);
+    var best = parseFloat(bought_option.bidPrice) - parseFloat(sold_option.askPrice);
+    var worst = parseFloat(bought_option.askPrice) - parseFloat(sold_option.bidPrice);
+    cost = (best + worst)/2.0;
   } else {
     // Bid and Ask only available when the market is open.
     cost = parseFloat(bought_option.lastTradePrice) - parseFloat(sold_option.lastTradePrice);
