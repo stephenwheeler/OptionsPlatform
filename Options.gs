@@ -303,10 +303,30 @@ function parseRow( oq, index ){
 */
 
 function getNextLetter(_letter, _increments=1){
+  var increments = parseInt(_increments);
   if (!_letter) _letter = 'f';
-  var result = String.fromCharCode(_letter.charCodeAt(0) + parseInt(_increments));
-  console.log('result: ', result);
+  var last_letter_code = _letter.length > 1 ? _letter.charCodeAt( _letter.length - 1) : _letter.charCodeAt(0);
+  var offset = last_letter_code - 'a'.charCodeAt(0);
+  var result = '';
+  if (_letter.length > 1) {
+    result = _letter.substring(0, _letter.length - 1);
+  }
+  result = result + String.fromCharCode(last_letter_code + increments);
+  
+  if (offset + increments >= 26){
+    // Add a first letter and reset last letter to 'a'.
+    result = 'a';
+    result = result + 'a';
+  }
+
   return result;
+}
+
+function getNextLetter_test(){
+  console.log('should be d:', getNextLetter('c', 1));
+  console.log('should be aa:', getNextLetter('c', 24));
+  console.log('should be ab:', getNextLetter('aa', 1));
+  console.log('should be cd:', getNextLetter('cc', 1));
 }
 
 function outputRowToSpreadsheet(oq, index){
