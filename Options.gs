@@ -66,7 +66,7 @@ function getOptionsDataFromCells(b_include_matrix){
   /* {"quotes":[{"symbol":"TSLA","symbolId":38526,"tier":"","bidPrice":null,"bidSize":0,"askPrice":null,"askSize":0,"lastTradePriceTrHrs":846.35,"lastTradePrice":846.35,"lastTradeSize":0,"lastTradeTick":"…"
   */
   var stock_price = stock_quotes.quotes[0].lastTradePrice;
-  cellsSetValue('b2', [[stock_price]]);
+  cellsSetValue('b2', [[stock_price]], dollar_format);
 
   // Get Option quotes for all options between min/max strike prices.
   var s_result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
@@ -76,22 +76,22 @@ function getOptionsDataFromCells(b_include_matrix){
   result.optionQuotes.forEach ( parseRow );
 
   // Clear the spreadsheet of previous values.
-  cellsClearRange('c15:z100');
+  cellsClearRange('c5:z100');
 
   var num_options = outputChainToSpreadsheet(result);
 
   if (b_include_matrix){
-    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, result.optionQuotes.length + 3, 'c', stock_price);
+    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallROI, result.optionQuotes.length + 3, 'c', stock_price, percentage_format);
 
-    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallSafety, (result.optionQuotes.length + 3) * 2, 'c', stock_price);
+    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallSafety, (result.optionQuotes.length + 3) * 2, 'c', stock_price, percentage_format);
 
-    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallOverallScore, (result.optionQuotes.length + 3) * 3, 'c', stock_price);
+    outputMatrixValuesToSpreadsheet(result, calculateVerticalCallOverallScore, (result.optionQuotes.length + 3) * 3, 'c', stock_price, two_decimals_format);
   }
 
   return result.optionQuotes.length;
 }
 
-function outputMatrixValuesToSpreadsheet( chain, matrix_values_function, row_offset, column, stock_price ){
+function outputMatrixValuesToSpreadsheet( chain, matrix_values_function, row_offset, column, stock_price, format ){
     // var result = JSON.parse(chain);
 
     var a_options = chain.optionQuotes;
@@ -108,15 +108,15 @@ function outputMatrixValuesToSpreadsheet( chain, matrix_values_function, row_off
             } else if (bought==0){
                 // Output top row of strike prices.
                 console.log(bought, ',', sold, a_options[sold].strike);
-                cellsSetValue( _range, [[a_options[sold].strike]] );
+                cellsSetValue( _range, [[a_options[sold].strike]], int_format );
             } else if (sold == 0) {
                 // Output left column of strike prices.
                 console.log(bought, ',', sold, a_options[bought].strike);
-                cellsSetValue( _range, [[a_options[bought].strike]] );
+                cellsSetValue( _range, [[a_options[bought].strike]], int_format );
             } else {
                 result = matrix_values_function(a_options[bought], a_options[sold], stock_price);
                 console.log(bought, ',', sold, result);
-                cellsSetValue( _range, [[result]] );
+                cellsSetValue( _range, [[result]], format );
             }
         }
     }
@@ -177,7 +177,7 @@ function optionCost(bought_option, sold_option){
 function calculateVerticalCallOverallScore(bought_option, sold_option, stock_price){
   stock_price = stock_price ? parseFloat(stock_price) : 100;
   // Get ratio factor from cell.
-  var factor = 5;
+  var factor = 3;
   var safety = optionSafetyMargin(bought_option, sold_option, stock_price);
   var spread = optionSpread(bought_option, sold_option);
   var cost = optionCost(bought_option, sold_option);
@@ -193,8 +193,11 @@ function optionSpread(bought_option, sold_option){
 
 function calculateVerticalCallROI(bought_option, sold_option, stock_price){
     if (!bought_option){
-      bought_option = { strike:770, askPrice:203 };
-      sold_option = { strike: 820, bidPrice: 176.15 };
+      bought_option = { strike:765, bidPrice:144.3, askPrice:152.7 };
+      sold_option = { strike: 770, bidPrice: 140.8, askPrice:150.8 };
+
+      // $140.80	$150.80
+      // $144.30	$152.70
       // bought_option = { strike:120, askPrice:10 };
       // sold_option = { strike: 100, bidPrice: 20 };
     }
@@ -350,11 +353,20 @@ function getParameterCells(){
   return values;
 }
 
-function cellsSetValue(range, values){
+// Set a value with optional formatting specified.
+//  https://developers.google.com/sheets/api/guides/formats
+const percentage_format = '###.0%';
+const dollar_format = '$####.00'; 
+const int_format = '#';
+const two_decimals_format = '####.00';
+function cellsSetValue(range, values, format){
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
   
   var range = sheet.getRange(range);
   range.setValues(values);
+  if (format){
+    range.setNumberFormat(format)
+  }
 }
 
 function cellsClearRange(range){
