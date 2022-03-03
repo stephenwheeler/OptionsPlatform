@@ -166,12 +166,33 @@ function optionCost(bought_option, sold_option){
   if (bought_option.askPrice && sold_option.bidPrice){
     var best = parseFloat(bought_option.bidPrice) - parseFloat(sold_option.askPrice);
     var worst = parseFloat(bought_option.askPrice) - parseFloat(sold_option.bidPrice);
-    cost = (best + worst)/2.0;
+    cost = (Math.abs(best) + Math.abs(worst))/2.0;
   } else {
     // Bid and Ask only available when the market is open.
     cost = parseFloat(bought_option.lastTradePrice) - parseFloat(sold_option.lastTradePrice);
   }
   return cost;
+}
+
+function optionCost_test()
+{
+  var b = {};
+  var s = {};
+  b.askPrice = 8.0;
+  b.bidPrice = 7.0;
+  s.bidPrice = 1.0;
+  s.askPrice = 2.0;
+  // Positive best price.
+  if ( optionCost(b,s) != 6 ){
+    throw Exception;
+  }
+  // Negative best price.
+  s = { bidPrice:81.90, askPrice:87.30 };
+  b = { bidPrice:84.30, askPrice:90.90 };
+  if ( optionCost(b,s) != 6 ){
+    throw Exception;
+  }
+
 }
 
 function calculateVerticalCallOverallScore(bought_option, sold_option, stock_price){
@@ -366,6 +387,9 @@ function cellsSetValue(range, values, format){
   range.setValues(values);
   if (format){
     range.setNumberFormat(format)
+    if (format == int_format) {
+      range.setFontWeight("bold");
+    }
   }
 }
 
