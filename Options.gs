@@ -43,6 +43,7 @@ function getOptionsMatrixFromCells(){
 }
 
 function getOptionsDataFromCells(b_include_matrix){
+  // TODO: pull this out into a getStockSymbolIdFromCell().
   var params = getParameterCells()[0];
   var stock_id = null;
   
@@ -186,13 +187,13 @@ function optionCost_test()
   if ( optionCost(b,s) != 6 ){
     throw Exception;
   }
+
   // Negative best price.
   s = { bidPrice:81.90, askPrice:87.30 };
   b = { bidPrice:84.30, askPrice:90.90 };
   if ( optionCost(b,s) != 6 ){
     throw Exception;
   }
-
 }
 
 function calculateVerticalCallOverallScore(bought_option, sold_option, stock_price){
@@ -268,14 +269,32 @@ function getTeslaOptions(){
   return outputChainToSpreadsheet(result);
 }
 
-function getOptionsFromStockSymbolId(symbolId){
-  if (!symbolId)
-    symbolId = '28768';  // NFLX.
+function getOptionExpiryListFromStockSymbolId(symbolId){
+  if (!symbolId){
+    var params = getParameterCells()[0];
   
+    // Get the Stock SymbolId from Stock symbol and save in f2.
+    var stock_symbols = JSON.parse(getSymbol(params[0]));
+    symbolId = '28768';  // NFLX.
+  }
   var url = 'v1/symbols/' + symbolId + '/options';
   var result = invokeQuestradeUrl(url, null);
-  console.log(result);
-  return result;
+  console.log(result[0]);
+  var expiryDates = parseExpiryDates(result);
+  outputArrayToSpreadsheet(expiryDates, 2, 17);
+
+  return expiryDates;
+}
+
+function parseExpiryDates(option_chain){
+  var expiryDates = [];
+  var chain = JSON.parse(option_chain);
+  for (option in chain.optionChain){
+    console.log("option: ", option, "---", "optionChain[option]: ", chain.optionChain[option]);
+    expiryDates[option] = chain.optionChain[option].expiryDate;
+  }
+  console.log(expiryDates);
+  return expiryDates;
 }
 
 function getSymbol(stock_ticker){
@@ -361,6 +380,19 @@ function outputRowToSpreadsheet(oq, index){
   var range = sheet.getRange(s_range);
   range.setValues([ [ oq.symbol, oq.expiryDate, oq.strike, oq.bidPrice, oq.askPrice, oq.lastTradePrice, oq.lastTradeTime ] ]);
   
+}
+
+function outputArrayToSpreadsheet(array, row, column){
+  // https://developers.google.com/apps-script/reference/spreadsheet/sheet#getrangerow,-column,-numrows
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var range = sheet.getRange(row, column, array.length);
+  // http://wafflebytes.blogspot.com/2016/10/google-script-create-drop-down-list.html
+  // TBD.
+  // range.setChoiceValues(array);
+  var array_2d = new Array(array.length);
+  array.forEach( (item, index) => { array_2d[index] = [item] } );
+
+  range.setValues(array_2d);
 }
 
 function getParameterCells(){
