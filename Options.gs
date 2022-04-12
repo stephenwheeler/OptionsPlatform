@@ -56,7 +56,9 @@ function getOptionsDataFromCells(b_include_matrix){
   for (sym in stock_symbols.symbols) {
     console.log((sym));
     if(stock_symbols.symbols[sym].symbol == params[0]){
+      // Note: there can be duplicate symbols across different listingExchange's. E.g. UPST.
       stock_id = stock_symbols.symbols[sym].symbolId;
+      break;
     }
   }
   console.log(stock_id);
