@@ -48,27 +48,13 @@ function getOptionsDataFromCells(b_include_matrix){
   var stock_id = null;
   
   // Get the Stock SymbolId from Stock symbol and save in f2.
-  var stock_symbols = JSON.parse(getSymbol(params[0]));
-  // { symbols: [{symbol:"TSLA", symbolId:38526}, {symbol:TSLA.TO...}] }
-  
-  console.log(stock_symbols.symbols[0]);
-  // Get stock_id from set of symbols.
-  for (sym in stock_symbols.symbols) {
-    console.log((sym));
-    if(stock_symbols.symbols[sym].symbol == params[0]){
-      // Note: there can be duplicate symbols across different listingExchange's. E.g. UPST.
-      stock_id = stock_symbols.symbols[sym].symbolId;
-      break;
-    }
-  }
+  stock_id = getSymbolId(params[0])
+
   console.log(stock_id);
   var cell_values = [[ stock_id ]];
   cellsSetValue('f2', cell_values); // Persist stock_id to spreadsheet.
   
-  var stock_quotes = JSON.parse( getMarketQuote(stock_id) );
-  /* {"quotes":[{"symbol":"TSLA","symbolId":38526,"tier":"","bidPrice":null,"bidSize":0,"askPrice":null,"askSize":0,"lastTradePriceTrHrs":846.35,"lastTradePrice":846.35,"lastTradeSize":0,"lastTradeTick":"…"
-  */
-  var stock_price = stock_quotes.quotes[0].lastTradePrice;
+  stock_price = getStockLastPrice(stock_id)
   cellsSetValue('b2', [[stock_price]], dollar_format);
 
   // Get Option quotes for all options between min/max strike prices.
@@ -271,6 +257,14 @@ function getTeslaOptions(){
   return outputChainToSpreadsheet(result);
 }
 
+function getStockLastPrice(ticker_symbol){
+  var stock_quotes = JSON.parse( getMarketQuote(ticker_symbol) );
+  /* {"quotes":[{"symbol":"TSLA","symbolId":38526,"tier":"","bidPrice":null,"bidSize":0,"askPrice":null,"askSize":0,"lastTradePriceTrHrs":846.35,"lastTradePrice":846.35,"lastTradeSize":0,"lastTradeTick":"…"
+  */
+  var stock_price = stock_quotes.quotes[0].lastTradePrice;
+  return stock_price
+}
+
 function getOptionExpiryListFromStockSymbolId(symbolId){
   if (!symbolId){
     var params = getParameterCells()[0];
@@ -309,6 +303,23 @@ function getSymbol(stock_ticker){
   var result = invokeQuestradeUrl(url, null);
 
   return result;
+}
+
+function getSymbolId(ticker_symbol){
+  var stock_symbols = JSON.parse(getSymbol(ticker_symbol));
+  // { symbols: [{symbol:"TSLA", symbolId:38526}, {symbol:TSLA.TO...}] }
+  
+  console.log(stock_symbols.symbols[0]);
+  // Get stock_id from set of symbols.
+  for (sym in stock_symbols.symbols) {
+    console.log((sym));
+    if(stock_symbols.symbols[sym].symbol == ticker_symbol){
+      // Note: there can be duplicate symbols across different listingExchange's. E.g. UPST.
+      stock_id = stock_symbols.symbols[sym].symbolId;
+      break;
+    }
+  }
+  return stock_id
 }
 
 function compareByStrike(a, b){
@@ -397,10 +408,10 @@ function outputArrayToSpreadsheet(array, row, column){
   range.setValues(array_2d);
 }
 
-function getParameterCells(){
+function getParameterCells(cell_range = 'a2:f2'){
   var sheet = SpreadsheetApp.getActiveSheet();
   // Stock	Stock Price	  Expiry	  Min Strike  	Max Strike	  Stock SymbolId
-  var range = sheet.getRange('a2:f2');
+  var range = sheet.getRange(cell_range);
 
   var values = range.getValues();
 
