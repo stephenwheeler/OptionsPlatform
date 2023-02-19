@@ -19,7 +19,15 @@ function getOptionsQuote(stock_id, expiry){
   return invokeQuestradeUrl('v1/markets/quotes/options', JSON.stringify(payload));
 }
 
-function getOptionsQuoteParams(stock_id, expiry, min_strike, max_strike){
+function getOptionsQuoteParams_test(){
+  result = getOptionsQuoteParams()
+  console.log(result)
+}
+
+function getOptionsQuoteParams(stock_id = 28768, expiry = "2023-04-21T00:00:00.000000-05:00",     min_strike = 280, max_strike = 330){
+  // console.log(stock_id, " ", expiry, " ", min_strike, " ", max_strike, "\n")
+  alert_message = stock_id + " " + expiry + " ", min_strike + " " + max_strike + "\n";
+  // SpreadsheetApp.getUi().alert( alert_message);
   var payload = {
     filters: [
         {
@@ -31,7 +39,12 @@ function getOptionsQuoteParams(stock_id, expiry, min_strike, max_strike){
         },
     ],
   };
-  return invokeQuestradeUrl('v1/markets/quotes/options', JSON.stringify(payload));
+  var s_result = invokeQuestradeUrl('v1/markets/quotes/options', JSON.stringify(payload));
+
+  var result = JSON.parse(s_result);
+
+  result.optionQuotes.forEach ( parseRow );
+  return result
 }
 
 function getOptionsChainFromCells(){
@@ -58,11 +71,7 @@ function getOptionsDataFromCells(b_include_matrix){
   cellsSetValue('b2', [[stock_price]], dollar_format);
 
   // Get Option quotes for all options between min/max strike prices.
-  var s_result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
-
-  var result = JSON.parse(s_result);
-
-  result.optionQuotes.forEach ( parseRow );
+  var result = getOptionsQuoteParams(stock_id,params[2], params[3], params[4]);
 
   // Clear the spreadsheet of previous values.
   cellsClearRange('c5:z100');
