@@ -240,9 +240,6 @@ function optionROI(spread, cost){
 }
 
 function outputChainToSpreadsheet(chain){
-  // var result = JSON.parse(chain);
-
-  // result.optionQuotes.forEach ( parseRow );
 
   // console.log(chain.optionQuotes[0]);
 
