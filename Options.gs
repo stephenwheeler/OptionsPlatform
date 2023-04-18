@@ -26,8 +26,6 @@ function getOptionsQuoteParams_test(){
 
 function getOptionsQuoteParams(stock_id = 28768, expiry = "2023-04-21T00:00:00.000000-05:00",     min_strike = 280, max_strike = 330){
   // console.log(stock_id, " ", expiry, " ", min_strike, " ", max_strike, "\n")
-  alert_message = stock_id + " " + expiry + " ", min_strike + " " + max_strike + "\n";
-  // SpreadsheetApp.getUi().alert( alert_message);
   var payload = {
     filters: [
         {
@@ -42,6 +40,12 @@ function getOptionsQuoteParams(stock_id = 28768, expiry = "2023-04-21T00:00:00.0
   var s_result = invokeQuestradeUrl('v1/markets/quotes/options', JSON.stringify(payload));
 
   var result = JSON.parse(s_result);
+
+  if (result.optionQuotes.length == 0){
+    alert_message = "No options available: \n" + expiry;
+    console.error(alert_message);
+    SpreadsheetApp.getUi().alert( alert_message); // Comment out for debugging.
+  }
 
   result.optionQuotes.forEach ( parseRow );
   return result
@@ -189,6 +193,14 @@ function optionCost_test()
   s = { bidPrice:81.90, askPrice:87.30 };
   b = { bidPrice:84.30, askPrice:90.90 };
   if ( optionCost(b,s) != 6 ){
+    throw Exception;
+  }
+
+  // Cost is a credit e.g. Sell lower call, buy higher call
+  s = { bidPrice:10, askPrice:20 }
+  b = { bidPrice:5, askPrice:10 }
+  if ( optionCost(b,s) != -7.5){
+    console.log( optionCost(b,s) )
     throw Exception;
   }
 }

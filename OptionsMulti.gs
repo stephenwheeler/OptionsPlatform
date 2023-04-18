@@ -38,10 +38,12 @@ function putCondorOptionValuesInCells(params, option_values){
     }
   });
   cellsSetValue('b19', [[option_values.stock_price]], dollar_format)
-  cellsSetValue('b24', [[optionSpread(result.above_bought, result.above_sold)]], dollar_format);
-  cellsSetValue('b26', [[optionSpread(result.below_bought, result.below_sold)]], dollar_format);
-  cellsSetValue('b25', [[optionCost(result.above_bought, result.above_sold)]], dollar_format);
-  cellsSetValue('b27', [[optionCost(result.below_bought, result.below_sold)]], dollar_format);
+  if ( option_values.optionQuotes.length > 0){
+    cellsSetValue('b24', [[optionSpread(result.above_bought, result.above_sold)]], dollar_format);
+    cellsSetValue('b26', [[optionSpread(result.below_bought, result.below_sold)]], dollar_format);
+    cellsSetValue('b25', [[optionCost(result.above_bought, result.above_sold)]], dollar_format);
+    cellsSetValue('b27', [[optionCost(result.below_bought, result.below_sold)]], dollar_format);
+  }
 }
 
 function getOptionsValues(ticker_symbol = 'NFLX', expiry, above_top_strike, above_lower_strike,
