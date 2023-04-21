@@ -1,3 +1,15 @@
+function getSymbol(stock_ticker){
+  // https://www.questrade.com/api/documentation/rest-operations/market-calls/symbols-search
+
+  if (!stock_ticker)
+    stock_ticker = 'NFLX';
+
+  var url = 'v1/symbols/search?prefix=' + stock_ticker;
+  var result = invokeQuestradeUrl(url, null);
+
+  return result;
+}
+
 function getMarketQuote(symbolId){
   // https://www.questrade.com/api/documentation/rest-operations/market-calls/markets-quotes-id
 
