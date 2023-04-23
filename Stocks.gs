@@ -1,4 +1,6 @@
-
+function getStockQuote(ticker_symbol){
+  return getStockLastPrice( getSymbolId(ticker_symbol) );
+}
 
 function getSymbolId(ticker_symbol){
   var stock_symbols = JSON.parse(getSymbol(ticker_symbol));
@@ -23,4 +25,33 @@ function getStockLastPrice(ticker_symbol){
   */
   var stock_price = stock_quotes.quotes[0].lastTradePrice;
   return stock_price
+}
+
+/*
+  Get a column of stock symbols based on a count value in cell a2.
+  Get a stock quote for each symbol.
+  Write the stock prices into column d, starting at d3.
+*/
+function doStockQuotesColumn(){
+  // Get Range of stock ticker symbols
+  var num_stocks = getParameterCells('a2')[0][0];
+  var i_num_stocks = parseInt(num_stocks);
+  if (isNaN(i_num_stocks)){
+    console.error("Column item count is not a number - are you on the right sheet?")
+    return
+  }
+  var stock_range_string = 'a3:a' + (parseInt(num_stocks) + 2);
+  var stock_price_range_string = 'd3:d' + (parseInt(num_stocks) + 2);
+  var stock_range = getParameterCells( stock_range_string );
+
+  var stock_prices = [[]];
+
+  // Iterate the stock ticker symbols and save prices
+  for (stock in stock_range){
+    stock_prices[stock] = [getStockQuote(stock_range[stock])];
+  }
+
+  // Update prices in spreadsheet, starting at D3. Not quite working...TODO.
+  cellsSetValue(stock_price_range_string, stock_prices, dollar_format);
+
 }
