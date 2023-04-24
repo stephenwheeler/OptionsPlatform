@@ -12,7 +12,25 @@ function getCondorParamsFromCells(cell_range = 'b3:b21') {
 }
 
 function doCondorOptions(){
-  params = getCondorParamsFromCells('b3:b21')
+  // Check which columns to process
+  column_range = 'b16:z16'
+  var columns = getParameterCells(column_range)[0]
+  var column_letter = 'b'
+  for (col in columns){
+    var condor_range = column_letter + '3:' + column_letter + '21'
+    if (columns[col].length > 0){
+      console.log(columns[col])
+      if (columns[col].toLowerCase() == 'x'){
+        doCondorOptionsSingle(condor_range)
+      }
+    }
+    column_letter = getNextLetter(column_letter) 
+  }
+}
+
+function doCondorOptionsSingle(range) 
+{
+  params = getCondorParamsFromCells(range)
   option_values = getOptionsValues(params.ticker_symbol, params.expiry, params.above_top_strike,
       params.above_lower_strike, params.below_top_strike, params.below_lower_strike)
 
