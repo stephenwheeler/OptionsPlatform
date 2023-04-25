@@ -1,5 +1,9 @@
 function getStockQuote(ticker_symbol){
-  return getStockLastPrice( getSymbolId(ticker_symbol) );
+  var symbolId = getSymbolId(ticker_symbol)
+  if (!isNaN(symbolId)){
+    return getStockLastPrice( symbolId );
+  }
+  return ''
 }
 
 function getSymbolId(ticker_symbol){
@@ -8,6 +12,7 @@ function getSymbolId(ticker_symbol){
   
   console.log(stock_symbols.symbols[0]);
   // Get stock_id from set of symbols.
+  var stock_id = NaN
   for (sym in stock_symbols.symbols) {
     console.log((sym));
     if(stock_symbols.symbols[sym].symbol == ticker_symbol){
@@ -48,7 +53,8 @@ function doStockQuotesColumn(){
 
   // Iterate the stock ticker symbols and save prices
   for (stock in stock_range){
-    stock_prices[stock] = [getStockQuote(stock_range[stock])];
+    var stock_price = getStockQuote(stock_range[stock])
+    stock_prices[stock] = [stock_price];
   }
 
   // Update prices in spreadsheet, starting at D3. Not quite working...TODO.
