@@ -44,7 +44,7 @@ function getOptionsQuoteParams(stock_id = 28768, expiry = "2023-04-21T00:00:00.0
   if (result.optionQuotes.length == 0){
     alert_message = "No options available: \n" + expiry;
     console.error(alert_message);
-    SpreadsheetApp.getUi().alert( alert_message); // Comment out for debugging.
+    // SpreadsheetApp.getUi().alert( alert_message); // Comment out for debugging.
   }
 
   result.optionQuotes.forEach ( parseRow );
@@ -165,13 +165,17 @@ function optionSafetyMargin(bought_option, sold_option, stock_price){
 
 function optionCost(bought_option, sold_option){
   var cost = 0;
-  if (bought_option.askPrice && sold_option.bidPrice){
-    var best = parseFloat(bought_option.bidPrice) - parseFloat(sold_option.askPrice);
-    var worst = parseFloat(bought_option.askPrice) - parseFloat(sold_option.bidPrice);
-    cost = (Math.abs(best) + Math.abs(worst))/2.0;
-  } else {
-    // Bid and Ask only available when the market is open.
-    cost = parseFloat(bought_option.lastTradePrice) - parseFloat(sold_option.lastTradePrice);
+  if (bought_option && sold_option){
+    if (bought_option.askPrice && sold_option.bidPrice){
+      var best = parseFloat(bought_option.bidPrice) - parseFloat(sold_option.askPrice);
+      var worst = parseFloat(bought_option.askPrice) - parseFloat(sold_option.bidPrice);
+      cost = (Math.abs(best) + Math.abs(worst))/2.0;
+      // Now that we have the magnitude, we need to ensure the sign is correct.
+      cost = bought_option.bidPrice > sold_option.bidPrice ? cost : cost * -1 
+    } else {
+      // Bid and Ask only available when the market is open.
+      cost = parseFloat(bought_option.lastTradePrice) - parseFloat(sold_option.lastTradePrice);
+    }
   }
   return cost;
 }
@@ -203,6 +207,14 @@ function optionCost_test()
     console.log( optionCost(b,s) )
     throw Exception;
   }
+
+  // Undefined / unavailable options
+  s = undefined
+  b = undefined
+  if ( optionCost(b, s) != 0){
+    console.log ( optionCost(b,s) )
+    throw Exception;
+  }
 }
 
 function calculateVerticalCallOverallScore(bought_option, sold_option, stock_price){
@@ -218,7 +230,10 @@ function calculateVerticalCallOverallScore(bought_option, sold_option, stock_pri
 }
 
 function optionSpread(bought_option, sold_option){
-  var spread = parseFloat(sold_option.strike) - parseFloat(bought_option.strike);
+  var spread = 0
+  if (bought_option && sold_option){
+    spread = parseFloat(sold_option.strike) - parseFloat(bought_option.strike);
+  }
   return spread;
 }
 

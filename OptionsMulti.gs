@@ -1,45 +1,49 @@
+var do_condor_row_range = 'b20:z20'
+var condor_stock_price_row = 23
+var condor_first_row = 3
+var condor_last_row = 25
+
 function getCondorParamsFromCells(cell_range = 'b3:b21') {
   var params = getParameterCells(cell_range);
   var result = {}
   result.ticker_symbol = params[0][0]
   result.expiry = params[1][0]
-  result.above_top_strike = params[14][0]
-  result.above_lower_strike = params[15][0]
-  result.below_top_strike = params[17][0]
-  result.below_lower_strike = params[18][0]
+  result.above_top_strike = params[condor_last_row - condor_first_row - 4][0]
+  result.above_lower_strike = params[condor_last_row - condor_first_row - 3][0]
+  result.below_top_strike = params[condor_last_row - condor_first_row - 1][0]
+  result.below_lower_strike = params[condor_last_row - condor_first_row][0]
   console.log(result)
   return result
 }
 
 function doCondorOptions(){
   // Check which columns to process
-  column_range = 'b16:z16'
-  var columns = getParameterCells(column_range)[0]
+  var columns = getParameterCells(do_condor_row_range)[0]
   var column_letter = 'b'
   for (col in columns){
-    var condor_range = column_letter + '3:' + column_letter + '21'
+    var condor_range = column_letter + condor_first_row + ':' + column_letter + condor_last_row
     if (columns[col].length > 0){
       console.log(columns[col])
       if (columns[col].toLowerCase() == 'x'){
-        doCondorOptionsSingle(condor_range)
+        doCondorOptionsSingle(condor_range, column_letter)
       }
     }
     column_letter = getNextLetter(column_letter) 
   }
 }
 
-function doCondorOptionsSingle(range) 
+function doCondorOptionsSingle(range, column_letter) 
 {
   params = getCondorParamsFromCells(range)
   option_values = getOptionsValues(params.ticker_symbol, params.expiry, params.above_top_strike,
       params.above_lower_strike, params.below_top_strike, params.below_lower_strike)
 
   // Put the prices for the 4 calls and the stock into the spreadsheet
-  putCondorOptionValuesInCells(params, option_values)
+  putCondorOptionValuesInCells(params, option_values, column_letter)
 }
 
-function putCondorOptionValuesInCells(params, option_values){
-  result = {}
+function putCondorOptionValuesInCells(params, option_values, column_letter){
+  var result = {}
   // Iterate through getting the option prices
   option_values.optionQuotes.forEach(function(option, index){
     if (option.strike == params.above_top_strike){
@@ -55,12 +59,14 @@ function putCondorOptionValuesInCells(params, option_values){
       result.below_sold = option
     }
   });
-  cellsSetValue('b19', [[option_values.stock_price]], dollar_format)
+  
+  cellsSetValue(column_letter + condor_stock_price_row, [[option_values.stock_price]], dollar_format)
   if ( option_values.optionQuotes.length > 0){
-    cellsSetValue('b24', [[optionSpread(result.above_bought, result.above_sold)]], dollar_format);
-    cellsSetValue('b26', [[optionSpread(result.below_bought, result.below_sold)]], dollar_format);
-    cellsSetValue('b25', [[optionCost(result.above_bought, result.above_sold)]], dollar_format);
-    cellsSetValue('b27', [[optionCost(result.below_bought, result.below_sold)]], dollar_format);
+    // Note: we can have cases where one or multiple options are not available. In this case the spread and cost will be set to zero.
+    cellsSetValue(column_letter + (condor_stock_price_row+5), [[optionSpread(result.above_bought, result.above_sold)]], dollar_format);
+    cellsSetValue(column_letter + (condor_stock_price_row+7), [[optionSpread(result.below_bought, result.below_sold)]], dollar_format);
+    cellsSetValue(column_letter + (condor_stock_price_row+6), [[optionCost(result.above_bought, result.above_sold)]], dollar_format);
+    cellsSetValue(column_letter + (condor_stock_price_row+8), [[optionCost(result.below_bought, result.below_sold)]], dollar_format);
   }
 }
 
