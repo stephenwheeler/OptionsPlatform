@@ -47,27 +47,36 @@ function putCondorOptionValuesInCells(params, option_values, column_letter){
   // Iterate through getting the option prices
   option_values.optionQuotes.forEach(function(option, index){
     if (option.strike == params.above_top_strike){
-      result.above_sold = option
-    }
-    if (option.strike == params.above_lower_strike){
       result.above_bought = option
     }
+    if (option.strike == params.above_lower_strike){
+      result.above_sold = option
+    }
     if (option.strike == params.below_top_strike){
-      result.below_bought = option
+      result.below_sold = option
     }
     if (option.strike == params.below_lower_strike){
-      result.below_sold = option
+      result.below_bought = option
     }
   });
   
   cellsSetValue(column_letter + condor_stock_price_row, [[option_values.stock_price]], dollar_format)
+  // Note: we can have cases where no options are available. The spread and cost will be set to zero.
+  var above_spread = 0
+  var below_spread = 0
+  var above_cost = 0
+  var below_cost = 0
   if ( option_values.optionQuotes.length > 0){
     // Note: we can have cases where one or multiple options are not available. In this case the spread and cost will be set to zero.
-    cellsSetValue(column_letter + (condor_stock_price_row+5), [[optionSpread(result.above_bought, result.above_sold)]], dollar_format);
-    cellsSetValue(column_letter + (condor_stock_price_row+7), [[optionSpread(result.below_bought, result.below_sold)]], dollar_format);
-    cellsSetValue(column_letter + (condor_stock_price_row+6), [[optionCost(result.above_bought, result.above_sold)]], dollar_format);
-    cellsSetValue(column_letter + (condor_stock_price_row+8), [[optionCost(result.below_bought, result.below_sold)]], dollar_format);
+    above_spread = optionSpread(result.above_bought, result.above_sold)
+    below_spread = optionSpread(result.below_bought, result.below_sold)
+    above_cost = optionCost(result.above_bought, result.above_sold)
+    below_cost = optionCost(result.below_bought, result.below_sold)
   }
+  cellsSetValue(column_letter + (condor_stock_price_row+5), [[above_spread]], dollar_format);
+  cellsSetValue(column_letter + (condor_stock_price_row+7), [[below_spread]], dollar_format);
+  cellsSetValue(column_letter + (condor_stock_price_row+6), [[above_cost]], dollar_format);
+  cellsSetValue(column_letter + (condor_stock_price_row+8), [[below_cost]], dollar_format);
 }
 
 function getOptionsValues(ticker_symbol = 'NFLX', expiry, above_top_strike, above_lower_strike,

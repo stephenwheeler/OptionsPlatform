@@ -163,6 +163,9 @@ function optionSafetyMargin(bought_option, sold_option, stock_price){
   return safety;
 }
 
+/*
+    Cost is negative if we pay money (debit), positive if we receive money (credit).
+*/
 function optionCost(bought_option, sold_option){
   var cost = 0;
   if (bought_option && sold_option){
@@ -208,6 +211,14 @@ function optionCost_test()
     throw Exception;
   }
 
+  // Cost is a credit e.g. Sell lower call, buy higher call
+  s = { lastTradePrice:10 }
+  b = { lastTradePrice:5 }
+  if ( optionCost(b,s) != -5){
+    console.log( optionCost(b,s) )
+    throw Exception;
+  }
+
   // Undefined / unavailable options
   s = undefined
   b = undefined
@@ -235,6 +246,23 @@ function optionSpread(bought_option, sold_option){
     spread = parseFloat(sold_option.strike) - parseFloat(bought_option.strike);
   }
   return spread;
+}
+
+function optionSpread_test(){
+  var b = { strike:100 }
+  var s = { strike:80 }
+  if (optionSpread(b, s) != -20){
+    console.log ( optionSpread(b,s) )
+    throw Exception;
+  }
+
+  b = { strike:80 }
+  s = { strike:100 }
+  if (optionSpread(b, s) != 20){
+    console.log( optionSpread(b, s) )
+    throw Exception;
+  }
+
 }
 
 function calculateVerticalCallROI(bought_option, sold_option, stock_price){
