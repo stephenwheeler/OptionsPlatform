@@ -31,10 +31,16 @@ function get_new_tokens(){
     //    Generate a token, copy it, and paste into one_time_token below. 
     // https://www.questrade.com/api/documentation/getting-started 
 
+    var userProperties = PropertiesService.getUserProperties();
+    var saved_tokens = JSON.parse(userProperties.getProperty("saved_tokens"));
+
+
     var url = "https://login.questrade.com/oauth2/token?grant_type=refresh_token&refresh_token=";
-    var one_time_token = "REPLACE_WITH_ONE_TIME_TOKEN";
+    var one_time_token = saved_tokens.refresh_token;
+    //one_time_token = "wYl_IsgHdHXSpCNSPN54Itmeb3C7EwRp0";
     var full_url = url + one_time_token; // Tokens from Questrade only work once...
     var response = UrlFetchApp.fetch(full_url, { "muteHttpExceptions": true});
+    
     var content_text = response.getContentText()
     // Must save escaped response for JSON parse to succeed for saved_tokens.
     var userProperties = PropertiesService.getUserProperties();
