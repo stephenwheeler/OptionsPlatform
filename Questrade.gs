@@ -22,13 +22,7 @@ function getMarketQuote(symbolId){
   return result;
 }
 
-function get_tokens(){
-  var userProperties = PropertiesService.getUserProperties();
-  var saved_tokens = userProperties.getProperty("saved_tokens");
-  var last_refreshed = userProperties.getProperty("last_refreshed_tokens");
-  var json;
-  if (!saved_tokens){
-
+function get_new_tokens(){
     // Get tokens using a Questrade IQ Apps token.
     //  Questrade top right --> Settings --> IQ API --> Edit
     //    My Applications --> Manage
@@ -42,9 +36,23 @@ function get_tokens(){
     var full_url = url + one_time_token; // Tokens from Questrade only work once...
     var response = UrlFetchApp.fetch(full_url, { "muteHttpExceptions": true});
     var content_text = response.getContentText()
-
     // Must save escaped response for JSON parse to succeed for saved_tokens.
+    var userProperties = PropertiesService.getUserProperties();
+
     userProperties.setProperty("saved_tokens", content_text);
+
+    return content_text;
+}
+
+function get_tokens(){
+  var userProperties = PropertiesService.getUserProperties();
+  var saved_tokens = userProperties.getProperty("saved_tokens");
+  var json;
+  if (!saved_tokens){
+
+    var content_text;
+    content_text = get_new_tokens();
+
     json = content_text;
   } else {
     json = saved_tokens;
