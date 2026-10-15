@@ -22,14 +22,6 @@ function getMarketQuote(symbolId){
   return result;
 }
 
-// Run this to get new tokens put into UserProperties, based on the the _new_ one time token from Questrade.
-function get_new_tokens_test()
-{
-  var tokens = get_new_tokens();
-
-  return tokens;
-}
-
 function get_new_tokens(){
     // Get tokens using a Questrade IQ Apps token.
     //  Questrade top right --> Settings --> IQ API --> Edit
@@ -40,9 +32,12 @@ function get_new_tokens(){
     // https://www.questrade.com/api/documentation/getting-started 
 
     var userProperties = PropertiesService.getUserProperties();
+    var saved_tokens = JSON.parse(userProperties.getProperty("saved_tokens"));
+
 
     var url = "https://login.questrade.com/oauth2/token?grant_type=refresh_token&refresh_token=";
-    var one_time_token = "REPLACE_ONE_TIME_TOKEN";
+    var one_time_token = saved_tokens.refresh_token;
+    //one_time_token = "wYl_IsgHdHXSpCNSPN54Itmeb3C7EwRp0";
     var full_url = url + one_time_token; // Tokens from Questrade only work once...
     var response = UrlFetchApp.fetch(full_url, { "muteHttpExceptions": true});
     
