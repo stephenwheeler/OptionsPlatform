@@ -22,50 +22,121 @@ function getMarketQuote(symbolId){
   return result;
 }
 
-function get_new_tokens(){
-    // Get tokens using a Questrade IQ Apps token.
-    //  Questrade top right --> Settings --> IQ API --> Edit
-    //    My Applications --> Manage
-    //    Register your application
-    //    Add a new device
-    //    Generate a token, copy it, and paste into one_time_token below. 
-    // https://www.questrade.com/api/documentation/getting-started 
-
-    var userProperties = PropertiesService.getUserProperties();
-    var saved_tokens = JSON.parse(userProperties.getProperty("saved_tokens"));
 
 
-    var url = "https://login.questrade.com/oauth2/token?grant_type=refresh_token&refresh_token=";
-    var one_time_token = saved_tokens.refresh_token;
-    //one_time_token = "wYl_IsgHdHXSpCNSPN54Itmeb3C7EwRp0";
-    var full_url = url + one_time_token; // Tokens from Questrade only work once...
-    var response = UrlFetchApp.fetch(full_url, { "muteHttpExceptions": true});
-    
-    var content_text = response.getContentText()
-    // Must save escaped response for JSON parse to succeed for saved_tokens.
-    var userProperties = PropertiesService.getUserProperties();
+const TOKEN_PROPERTY = "saved_tokens";
+const TOKEN_EXPIRY_MARGIN_MS = 60 * 1000; // Refresh 1 minute early
 
-    userProperties.setProperty("saved_tokens", content_text);
-
-    return content_text;
+function initialize_questrade_tokens() {
+  const tokens = get_new_tokens("j2BY0YlgzVGn7rSycORqOYqBkQunTmk_0");
+  Logger.log("Token expiry: " + new Date(tokens.expires_at));
 }
 
-function get_tokens(){
-  var userProperties = PropertiesService.getUserProperties();
-  var saved_tokens = userProperties.getProperty("saved_tokens");
-  var json;
-  if (!saved_tokens){
+/**
+ * Returns valid tokens, refreshing automatically when necessary.
+ */
+function get_tokens() {
+  const userProperties = PropertiesService.getUserProperties();
+  const savedText = userProperties.getProperty(TOKEN_PROPERTY);
 
-    var content_text;
-    content_text = get_new_tokens();
+  let tokens = savedText ? JSON.parse(savedText) : null;
 
-    json = content_text;
-  } else {
-    json = saved_tokens;
+  // Missing tokens, missing expiry metadata, or expiry approaching:
+  // obtain a fresh access token.
+  if (
+    !tokens ||
+    !tokens.access_token ||
+    !tokens.refresh_token ||
+    !tokens.expires_at ||
+    Date.now() >= tokens.expires_at - TOKEN_EXPIRY_MARGIN_MS
+  ) {
+    tokens = get_new_tokens();
   }
 
-  return JSON.parse(json);
+  return tokens;
 }
+
+/**
+ * Refreshes the Questrade access token and saves the new token set.
+ *
+ * For initial setup, supply your one-time token as the argument.
+ * Subsequent calls use the saved refresh token automatically.
+ */
+function get_new_tokens(initialRefreshToken) {
+  const userProperties = PropertiesService.getUserProperties();
+  const savedText = userProperties.getProperty(TOKEN_PROPERTY);
+  const savedTokens = savedText ? JSON.parse(savedText) : null;
+
+  const refreshToken =
+    initialRefreshToken || (savedTokens && savedTokens.refresh_token);
+
+  if (!refreshToken) {
+    throw new Error(
+      "No refresh token is saved. Call get_new_tokens() with your " +
+      "initial Questrade token to initialize authentication."
+    );
+  }
+
+  const url =
+    "https://login.questrade.com/oauth2/token" +
+    "?grant_type=refresh_token" +
+    "&refresh_token=" + encodeURIComponent(refreshToken);
+
+  const response = UrlFetchApp.fetch(url, {
+    muteHttpExceptions: true
+  });
+
+  const status = response.getResponseCode();
+  const contentText = response.getContentText();
+
+  if (status < 200 || status >= 300) {
+    throw new Error(
+      "Questrade token refresh failed. HTTP " +
+      status + ": " + contentText
+    );
+  }
+
+  let newTokens;
+
+  try {
+    newTokens = JSON.parse(contentText);
+  } catch (e) {
+    throw new Error("Questrade returned invalid token JSON: " + contentText);
+  }
+
+  if (
+    !newTokens.access_token ||
+    !newTokens.refresh_token ||
+    !newTokens.expires_in
+  ) {
+    throw new Error(
+      "Questrade token response is missing required fields: " +
+      contentText
+    );
+  }
+
+  // Store the absolute expiry time, in milliseconds since the Unix epoch.
+  newTokens.expires_at =
+    Date.now() + Number(newTokens.expires_in) * 1000;
+
+  // Save only after the response has been validated.
+  userProperties.setProperty(
+    TOKEN_PROPERTY,
+    JSON.stringify(newTokens)
+  );
+
+  return newTokens;
+}
+
+/**
+ * Optional test function.
+ */
+function get_new_tokens_test() {
+  return get_tokens();
+}
+
+
+
 
 function invokeQuestradeUrl(path, data_opt)
 {
